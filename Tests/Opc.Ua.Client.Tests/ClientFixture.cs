@@ -28,7 +28,10 @@
  * ======================================================================*/
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using Opc.Ua.Configuration;
@@ -41,6 +44,7 @@ namespace Opc.Ua.Client.Tests
     /// </summary>
     public class ClientFixture
     {
+        private NUnitTraceLogger m_traceLogger;
         public ApplicationConfiguration Config { get; private set; }
         public ConfiguredEndpoint Endpoint { get; private set; }
         public string EndpointUrl { get; private set; }
@@ -48,7 +52,9 @@ namespace Opc.Ua.Client.Tests
         public ReverseConnectManager ReverseConnectManager { get; private set; }
         public uint SessionTimeout { get; set; } = 10000;
         public int OperationTimeout { get; set; } = 10000;
-        public int TraceMasks { get; set; } = Utils.TraceMasks.Error | Utils.TraceMasks.Security;
+        public int TraceMasks { get; set; } = Utils.TraceMasks.Error | Utils.TraceMasks.StackTrace | Utils.TraceMasks.Security | Utils.TraceMasks.Information;
+
+        public ISessionFactory SessionFactory { get; } = new DefaultSessionFactory();
 
         #region Public Methods
         /// <summary>
@@ -125,7 +131,7 @@ namespace Opc.Ua.Client.Tests
         /// Connects the specified endpoint URL.
         /// </summary>
         /// <param name="endpointUrl">The endpoint URL.</param>
-        public async Task<Session> Connect(string endpointUrl)
+        public async Task<ISession> Connect(string endpointUrl)
         {
             if (String.IsNullOrEmpty(endpointUrl))
             {
@@ -169,7 +175,7 @@ namespace Opc.Ua.Client.Tests
         /// <summary>
         /// Connects the url endpoint with specified security profile.
         /// </summary>
-        public async Task<Session> ConnectAsync(Uri url, string securityProfile, EndpointDescriptionCollection endpoints = null)
+        public async Task<ISession> ConnectAsync(Uri url, string securityProfile, EndpointDescriptionCollection endpoints = null)
         {
             return await ConnectAsync(await GetEndpointAsync(url, securityProfile, endpoints).ConfigureAwait(false)).ConfigureAwait(false);
         }
@@ -178,7 +184,7 @@ namespace Opc.Ua.Client.Tests
         /// Connects the specified endpoint.
         /// </summary>
         /// <param name="endpoint">The configured endpoint.</param>
-        public async Task<Session> ConnectAsync(ConfiguredEndpoint endpoint)
+        public async Task<ISession> ConnectAsync(ConfiguredEndpoint endpoint)
         {
             if (endpoint == null)
             {
@@ -189,7 +195,7 @@ namespace Opc.Ua.Client.Tests
                 }
             }
 
-            var session = await Session.Create(
+            var session = await SessionFactory.Create(
                 Config, endpoint, false, false,
                 Config.ApplicationName, SessionTimeout, null, null).ConfigureAwait(false);
 
@@ -284,10 +290,25 @@ namespace Opc.Ua.Client.Tests
                 return await client.GetEndpointsAsync(null).ConfigureAwait(false);
             }
         }
+
+        /// <summary>
+        /// Connect the nunit writer with the logger.
+        /// </summary>
+        public void SetTraceOutput(TextWriter writer)
+        {
+            if (m_traceLogger == null)
+            {
+                m_traceLogger = NUnitTraceLogger.Create(writer, Config, TraceMasks);
+            }
+            else
+            {
+                m_traceLogger.SetWriter(writer);
+            }
+        }
         #endregion
 
         #region Private Methods
-        private void Session_KeepAlive(Session session, KeepAliveEventArgs e)
+        private void Session_KeepAlive(ISession session, KeepAliveEventArgs e)
         {
             if (ServiceResult.IsBad(e.Status))
             {

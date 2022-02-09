@@ -27,22 +27,10 @@
  * http://opcfoundation.org/License/MIT/1.00/
  * ======================================================================*/
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace Opc.Ua.Client.Controls
+namespace Opc.Ua.Client
 {
     /// <summary>
-    /// An interface for forms that use a session.
+    /// Used to handle renews of user identity tokens before reconnect.
     /// </summary>
-    public interface ISessionForm
-    {
-        /// <summary>
-        /// Changes the session being used by the form.
-        /// </summary>
-        /// <param name="session">The new session to use. A null value means the session has been disconnected.</param>
-        void ChangeSession(ISession session);
-    }
+    public delegate IUserIdentity RenewUserIdentityEventHandler(ISession session, IUserIdentity identity);
 }
